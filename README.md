@@ -26,3 +26,9 @@ Now you can access the service on your local system on port 3000
 ```
 http://localhost:3000
 ```
+
+For testing your local service you can use the HTML test client that sends and receives protobuf messages
+```
+http://localhost:3000/client/
+```
+
