@@ -1,14 +1,16 @@
 var express = require('express');
 var path = require('path');
-var routes = require('./routes/index');
 var service = require('./routes/service');
 
 var app = express();
 
-app.use(express.static(path.join(__dirname, 'public')));
+//client
+app.use('/client', express.static('./public'));
+app.use('/client/FMISExchange.proto', express.static('./handlers/FMISExchange.proto'));
+app.use('/client/ISO_DIS_11783-10.proto', express.static('./handlers/ISO_DIS_11783-10.proto'));
 
-app.use('/', routes);
-app.use('/service', service);
+//service
+app.use('/', service);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
