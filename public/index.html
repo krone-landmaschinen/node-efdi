@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Security-Policy" content="default-src *; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'">
+        <meta name="format-detection" content="telephone=no">
+        <meta name="msapplication-tap-highlight" content="no">
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
+        
+		<link type="text/css" rel="stylesheet" href="css/index.css">
+		
+		<script type="text/javascript" src="js/jquery-2.2.0.min.js"></script>
+		<script type="text/javascript" src="js/bytebuffer.min.js"></script>
+		<script type="text/javascript" src="js/long.min.js"></script>
+		<script type="text/javascript" src="js/protobuf.min.js"></script>
+		<script type="text/javascript" src="js/index.js"></script>
+		
+        <title>EFDI Test Client</title>
+    </head>
+    <body>
+		<div id="work">
+			Send a message to the EFDI server
+			<button id="sendMsg">send message</button>
+		</div>
+		Log:
+		<div id="log"></div>
+    </body>
+</html>
