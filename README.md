@@ -16,7 +16,7 @@ npm install
 
 Currently the required proto files for FMISExchange and ISO_DIS_11783-10 need to be added manually into the "handlers" sub directory. This is due to licensing issues.
 
-## Running the serive
+## Running the service
 Open a command line and change to the local repository directory. Then run the service by
 ```
 node bin/www
