@@ -24,11 +24,11 @@ node bin/www
 
 Now you can access the service on your local system on port 3000
 ```
-http://localhost:3000
+http://localhost:3000/service/efdi
 ```
 
-For testing your local service you can use the HTML test client that sends and receives protobuf messages
+For testing your local service you can use the HTML gui that sends and receives protobuf messages and also shows the server's incoming messages
 ```
-http://localhost:3000/client/
+http://localhost:3000/gui/
 ```
 
