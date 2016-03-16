@@ -1,42 +1,111 @@
+'use strict';
+var util = require('util');
 var pjson = require(__dirname + '/../package.json');
+var debug = require('debug')('node-efdi:handler-efdi');
 var ProtoBuf = require("protobufjs");
 var ByteBuffer = ProtoBuf.ByteBuffer;
 var builder = ProtoBuf.newBuilder();
 var FMISExchange = null;
 
+
+
+
 //init protobuf builder
 var fs = require('fs');
-fs.readFile(__dirname + '/ISO_DIS_11783-10.proto', 'utf8', function (err,data) {
-	if (err) {
-		return console.log('Protobuf builders could not be initialized. Please copy the ISO_DIS_11783-10.proto file to the "handlers" directory. ' + err);
-	}
-	ProtoBuf.loadProto(data, builder, __dirname + "/ISO_DIS_11783-10.proto");
+var data = fs.readFileSync(__dirname + '/ISO_DIS_11783-10.proto').toString();
+ProtoBuf.loadProto(data, builder, __dirname + "/ISO_DIS_11783-10.proto");
+data = fs.readFileSync(__dirname + '/google/protobuf/any.proto').toString();
+ProtoBuf.loadProto(data, builder, __dirname + "/google/protobuf/any.proto");
+data = fs.readFileSync(__dirname + '/FMISExchange.proto').toString();
+ProtoBuf.loadProto(data, builder, __dirname + "/FMISExchange.proto");
+FMISExchange = builder.build("FMISExchange");
 
-});
 
-fs.readFile(__dirname + '/FMISExchange.proto', 'utf8', function (err,data) {
-	if (err) {
-		return console.log('Protobuf builders could not be initialized. Please copy the FMISExchange.proto file to the "handlers" directory. ' + err);
-	}
-	ProtoBuf.loadProto(data, builder, __dirname + "/FMISExchange.proto");
-	
-	FMISExchange = builder.build("FMISExchange");
-	console.log('protobuf builders initialized');
-});
+//class HandlerEfdi
+var EventEmitter = require('events');
 
+//class HandlerEfdi extends EventEmitter {}
+
+function HandlerEfdi() {
+	/*
+	 * TODO the message queue for response message; currently there is only one queue for the whole
+	 * handler; this must be handled in context of each session.
+	 */
+	this.responseMessages = [];
+
+}
+
+util.inherits(HandlerEfdi, EventEmitter);
+
+//HandlerEfdi.prototype.responseMessages = [];
 
 /**
  * creates an FMISMessage object with initial field values
  * 
- *  @return FMISMessage msg
+ *  @return {FMISMessage} msg
  */
-var createNewMessage = function () {
+HandlerEfdi.prototype.createNewMessage = function () {
 	var msg = new FMISExchange.FMISMessage();
 	msg.set_unique_system_identifier(pjson.name + '-v' +  pjson.version);
 	msg.set_system_agent_id(ByteBuffer.fromUTF8(pjson.name + '-v' +  pjson.version));
 	return msg;
 }
 
+/**
+ * creates an FMISMessage object with initial field values
+ * 
+ *  @return {FMISMessageNew} msg
+ */
+HandlerEfdi.prototype.createNewMessageNew = function () {
+	var msg = new FMISExchange.FMISMessageNew();
+	return msg;
+}
+
+HandlerEfdi.prototype.messageReceiver = function(responseMsg)  {
+	this.responseMessages.push(responseMsg);
+	var self = this;
+	self.emit('messageOut', responseMsg);
+}
+
+HandlerEfdi.prototype.handleMessage = function(msg) {
+	var self = this;
+	self.emit('message', msg, this.messageReceiver);
+	self.emit('message.packetType.'+msg.packetType, msg, function(responseMsg) {
+		self.messageReceiver(responseMsg);
+	});
+	
+
+	//get the last response message - this concept has to be refactored. Currently only one message is possible with an HTTP response, but there could be more messages.
+	var responseMsg = null;
+	if (this.responseMessages.length == 0) {
+		debug('no response message available - generating default response of packetType=' + msg.packetType);
+		responseMsg = handlerEfdi.createNewMessage();
+		responseMsg.set_seq(msg.seq);
+		responseMsg.packetType = msg.packetType;
+	}
+	else {
+		responseMsg = this.responseMessages.shift();
+
+		//just for information
+		if (this.responseMessages.length != 0) {
+			debug('remaining responseMessages=' + this.responseMessages.length);
+		}
+	}
+
+	return responseMsg;
+	//return this.generateResponse(msg);
+}
+
+HandlerEfdi.prototype.handleMessageNew = function(msg) {
+	debug('emitting event');
+	this.emit('event', msg, this.messageReceiver);
+	msg.event.forEach(function(eventMsg) {
+		this.emit('event.' + eventMsg.eventName, eventMsg);
+	});
+	
+
+	return this.generateResponseNew(msg);
+}
 
 /**
  * generates the response message for the incoming msg.
@@ -44,17 +113,18 @@ var createNewMessage = function () {
  * @param FMISMessage msg
  * @param res
  */
-var generateResponse = function(msg, res) {
-
+HandlerEfdi.prototype.generateResponse = function(msg) {
+	debug('generateResponse');
+	var FMISExchange = handlerEfdi.FMISExchange;
 	var responseMsg = null;
 	switch (msg.packetType) {
 		case FMISExchange.FMISMessageType.PING:
-			responseMsg = createNewMessage();
+			responseMsg = handlerEfdi.createNewMessage();
 			responseMsg.set_seq(msg.seq);
 			responseMsg.packetType = msg.packetType;
 			break;
 		case FMISExchange.FMISMessageType.REQ_CAPABILITY:
-			responseMsg = createNewMessage();
+			responseMsg = handlerEfdi.createNewMessage();
 			responseMsg.seq = msg.seq;
 			responseMsg.packetType = FMISExchange.FMISMessageType.RES_CAPABILITY;
 			var capResponse = new FMISExchange.CAPResponse();
@@ -67,73 +137,51 @@ var generateResponse = function(msg, res) {
 			capResponse.supportedCap.push(FMISExchange.FMISMessageType.PUSH_LIVE);
 			responseMsg.set_capabilities_response(capResponse);
 			break;
+		case FMISExchange.FMISMessageType.PUSH_LIVE:
+			debug('TODO PUSH_LIVE');
+			responseMsg = handlerEfdi.createNewMessage();
+			responseMsg.seq = msg.seq;
+			responseMsg.packetType = FMISExchange.FMISMessageType.RES_LIVE;
+			//console.log(msg);
+			break;
+		case FMISExchange.FMISMessageType.REQ_DEVICE:
+			debug('TODO REQ_DEVICE');
+			responseMsg = handlerEfdi.createNewMessage();
+			responseMsg.seq = msg.seq;
+			responseMsg.packetType = FMISExchange.FMISMessageType.RES_DEVICE;
+			break;
+
 		default:
+			debug('packetType ' + msg.packetType + ' not implemented');
 			throw new Error('Packet type ' + msg.packetType + ' not implemented.');
 			break;
 	}
 	
 	
-	//res.type('application/octet-stream');
-	if (responseMsg != null) {
-		console.log('response ' + responseMsg.encodeJSON());
-		res.send(responseMsg.toBuffer());
-	}
+	return responseMsg;
+}
+
+/**
+ * generates the response message for the incoming msg.
+ * 
+ * @param FMISMessage msg
+ * @param res
+ */
+HandlerEfdi.prototype.generateResponseNew = function(msg) {
+
+	var FMISExchange = handlerEfdi.FMISExchange;
+	var responseMsg = null;
+	debug('generateResponse');
+	
+	responseMsg = handlerEfdi.createNewMessageNew();
+	return responseMsg;
 }
 
 
-//parse request
-var parseRequest = function(buffer, res) {
+var handlerEfdi = new HandlerEfdi();
+handlerEfdi.FMISExchange = FMISExchange;
+handlerEfdi.ByteBuffer = ByteBuffer;
 
-	try {
-		var msg = new FMISExchange.FMISMessage.decode(buffer);
-		console.log("request " + msg.encodeJSON());
-	
-	} catch (e) {
-		console.log('Exception while decoding efdi request: ' + e);
-		buffer.printDebug();
-		
-		res.status(500);
-		res.send("exception " + e);
-		return;
-	}
-	
-	try {
-		generateResponse(msg, res);
-	} catch (e) {
-		console.log('Exception while encoding efdi response: ' + e);
-		console.log(msg);
-		
-		res.status(500);
-		res.send("exception " + e);
-		return;
-	}
-	
-	res.end();
-}
+debug('protobuf builders initialized');
 
-
-//handle messages
-var handler = function (req, res, next) {
-	
-	//get the binary content
-	var buffers = [];
-
-    req.on('data', function(chunk) {
-    	buffers.push(chunk);
-    });
-    req.on('end', function() {
-    	var buffer = ByteBuffer.concat(buffers);
-    	buffer.ensureCapacity(buffer.capacity() + 1);
-    	
-    	//console.log("headers=" + JSON.stringify(req.headers));
-    	
-        parseRequest(buffer, res);
-        
-        console.log(req.headers);
-        //buffer.printDebug();
-    });
-
-}
-
-
-module.exports = handler;
+module.exports = handlerEfdi;

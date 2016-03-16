@@ -17,11 +17,30 @@
         <title>EFDI Test Client</title>
     </head>
     <body>
-		<div id="work">
-			Send a message to the EFDI server
-			<button id="sendMsg">send message</button>
-		</div>
-		Log:
-		<div id="log"></div>
+		<table>
+			<tr>
+				<th>Client</th>
+				<th>Server</th>
+			</tr>
+			<tr>
+				<td valign="top">
+					<div id="client">
+						<div id="work">
+							Send a message to the EFDI server
+							<button id="sendMsg">send message</button>
+							<button id="wsTest">Test Websocket</button>
+						</div>
+						client log:
+						<div id="log" style="height: 100%; overflow: auto;"></div>
+					</div>
+				</td>
+				<td valign="top">
+					<div id="server">
+						server log:
+						<div id="serverLog" style="height: 100%; overflow: auto;"></div>
+					</div>
+				</td>
+			</tr>
+		</table>
     </body>
 </html>
